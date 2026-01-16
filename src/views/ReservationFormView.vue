@@ -114,12 +114,21 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReservationForm } from '../composables/useReservations'
 
 const router = useRouter()
 const { formData, errors, validate } = useReservationForm()
+
+// セッションストレージから保存されたデータを復元
+onMounted(() => {
+  const savedData = sessionStorage.getItem('reservationFormData')
+  if (savedData) {
+    const data = JSON.parse(savedData)
+    formData.value = { ...formData.value, ...data }
+  }
+})
 
 // 最小日付（今日）
 const minDate = computed(() => {
