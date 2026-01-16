@@ -103,11 +103,11 @@
     </div>
     
     <div class="footer-btn">
-      <button class="btn btn-secondary" @click="goBack">
-        戻る
-      </button>
       <button class="btn" @click="goToConfirm">
         次へ
+      </button>
+      <button class="btn btn-secondary" @click="goBack">
+        戻る
       </button>
     </div>
   </div>
@@ -128,7 +128,20 @@ const minDate = computed(() => {
 })
 
 const goBack = () => {
-  router.push('/')
+  const hasInput = formData.value.pickupLocation ||
+                   formData.value.dropOffLocation ||
+                   formData.value.reservationDate ||
+                   formData.value.reservationTime ||
+                   formData.value.customerName ||
+                   formData.value.customerPhone
+
+  if (hasInput) {
+    if (confirm('入力内容が消えますが、本当に戻りますか？')) {
+      router.push('/')
+    }
+  } else {
+    router.push('/')
+  }
 }
 
 const goToConfirm = () => {
