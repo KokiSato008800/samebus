@@ -41,11 +41,11 @@
     </div>
 
     <div class="footer-btn">
-      <button class="btn" @click="goToHistory">
-        予約一覧を見る
-      </button>
-      <button class="btn btn-secondary" @click="goToHome">
+      <button class="btn" @click="goToHome">
         ホームへ戻る
+      </button>
+      <button class="btn btn-secondary" @click="goToHistory">
+        予約一覧を見る
       </button>
     </div>
   </div>

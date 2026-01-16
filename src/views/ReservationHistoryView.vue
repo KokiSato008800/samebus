@@ -87,11 +87,11 @@
     </div>
     
     <div class="footer-btn">
-      <button class="btn btn-secondary" @click="goToHome">
-        ホームへ戻る
-      </button>
       <button class="btn" @click="goToReservation">
         📋 新しく予約する
+      </button>
+      <button class="btn btn-secondary" @click="goToHome">
+        ホームへ戻る
       </button>
     </div>
     
