@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /reservations/{reservationId} {
+      // 誰でも読み書き可能 (認証なし)
+      allow read, write: if true;
+    }
+  }
+}
+
+
