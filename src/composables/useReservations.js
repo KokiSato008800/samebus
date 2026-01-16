@@ -1,28 +1,28 @@
 import { ref } from 'vue'
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  query, 
-  orderBy, 
-  onSnapshot,
-  serverTimestamp,
-  Timestamp
-} from 'firebase/firestore'
-import { db } from '../firebase/config'
+
+// デモモード（Firebaseなしで動作）
+const DEMO_MODE = true
+
+// ローカルストレージのキー
+const STORAGE_KEY = 'samebus_reservations'
+
+// ローカルストレージから予約データを取得
+const getLocalReservations = () => {
+  const data = localStorage.getItem(STORAGE_KEY)
+  return data ? JSON.parse(data) : []
+}
+
+// ローカルストレージに予約データを保存
+const saveLocalReservations = (reservations) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(reservations))
+}
 
 // 予約データを管理するComposable
 export function useReservations() {
   const reservations = ref([])
   const loading = ref(false)
   const error = ref(null)
-  
-  // コレクション参照
-  const reservationsRef = collection(db, 'reservations')
-  
+
   // 予約番号を生成
   const generateReservationNumber = () => {
     const now = new Date()
@@ -32,23 +32,17 @@ export function useReservations() {
     const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0')
     return `R${year}${month}${day}${random}`
   }
-  
+
   // 全予約を取得
   const fetchReservations = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
-      const q = query(reservationsRef, orderBy('createdAt', 'desc'))
-      const snapshot = await getDocs(q)
-      
-      reservations.value = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        // Timestampを日付文字列に変換
-        createdAt: doc.data().createdAt?.toDate?.() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate?.() || new Date()
-      }))
+      if (DEMO_MODE) {
+        // デモモード: ローカルストレージから取得
+        reservations.value = getLocalReservations()
+      }
     } catch (err) {
       console.error('予約取得エラー:', err)
       error.value = '予約の取得に失敗しました'
@@ -56,39 +50,27 @@ export function useReservations() {
       loading.value = false
     }
   }
-  
-  // リアルタイム購読
+
+  // リアルタイム購読（デモモードではダミー）
   const subscribeReservations = (callback) => {
-    const q = query(reservationsRef, orderBy('createdAt', 'desc'))
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate?.() || new Date()
-      }))
-      
-      reservations.value = data
-      
+    if (DEMO_MODE) {
+      reservations.value = getLocalReservations()
       if (callback) {
-        callback(data)
+        callback(reservations.value)
       }
-    }, (err) => {
-      console.error('リアルタイム購読エラー:', err)
-      error.value = 'リアルタイム更新に失敗しました'
-    })
-    
-    return unsubscribe
+      // ダミーのunsubscribe関数を返す
+      return () => {}
+    }
   }
-  
+
   // 新規予約を作成
   const createReservation = async (data) => {
     loading.value = true
     error.value = null
-    
+
     try {
       const reservationData = {
+        id: 'demo_' + Date.now(),
         reservationNumber: generateReservationNumber(),
         pickupLocation: data.pickupLocation,
         dropOffLocation: data.dropOffLocation,
@@ -97,18 +79,18 @@ export function useReservations() {
         customerName: data.customerName,
         customerPhone: data.customerPhone,
         status: 'pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
-      
-      const docRef = await addDoc(reservationsRef, reservationData)
-      
-      return {
-        id: docRef.id,
-        ...reservationData,
-        createdAt: new Date(),
-        updatedAt: new Date()
+
+      if (DEMO_MODE) {
+        // デモモード: ローカルストレージに保存
+        const currentReservations = getLocalReservations()
+        currentReservations.unshift(reservationData)
+        saveLocalReservations(currentReservations)
       }
+
+      return reservationData
     } catch (err) {
       console.error('予約作成エラー:', err)
       error.value = '予約の作成に失敗しました'
@@ -117,18 +99,22 @@ export function useReservations() {
       loading.value = false
     }
   }
-  
+
   // 予約ステータスを更新
   const updateReservationStatus = async (id, status) => {
     loading.value = true
     error.value = null
-    
+
     try {
-      const docRef = doc(db, 'reservations', id)
-      await updateDoc(docRef, {
-        status,
-        updatedAt: serverTimestamp()
-      })
+      if (DEMO_MODE) {
+        const currentReservations = getLocalReservations()
+        const index = currentReservations.findIndex(r => r.id === id)
+        if (index !== -1) {
+          currentReservations[index].status = status
+          currentReservations[index].updatedAt = new Date().toISOString()
+          saveLocalReservations(currentReservations)
+        }
+      }
     } catch (err) {
       console.error('ステータス更新エラー:', err)
       error.value = 'ステータスの更新に失敗しました'
@@ -137,15 +123,18 @@ export function useReservations() {
       loading.value = false
     }
   }
-  
+
   // 予約を削除（キャンセル）
   const deleteReservation = async (id) => {
     loading.value = true
     error.value = null
-    
+
     try {
-      const docRef = doc(db, 'reservations', id)
-      await deleteDoc(docRef)
+      if (DEMO_MODE) {
+        const currentReservations = getLocalReservations()
+        const filtered = currentReservations.filter(r => r.id !== id)
+        saveLocalReservations(filtered)
+      }
     } catch (err) {
       console.error('予約削除エラー:', err)
       error.value = '予約の削除に失敗しました'
@@ -154,7 +143,7 @@ export function useReservations() {
       loading.value = false
     }
   }
-  
+
   // 予約をキャンセル（ステータス変更）
   const cancelReservation = async (id) => {
     return updateReservationStatus(id, 'cancelled')
