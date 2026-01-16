@@ -50,11 +50,11 @@
     </div>
     
     <div class="footer-btn">
-      <button class="btn btn-secondary" @click="goBack" :disabled="loading">
-        戻る
-      </button>
       <button class="btn btn-success" @click="submitReservation" :disabled="loading">
         {{ loading ? '送信中...' : '予約を確定する' }}
+      </button>
+      <button class="btn btn-secondary" @click="goBack" :disabled="loading">
+        戻る
       </button>
     </div>
   </div>
