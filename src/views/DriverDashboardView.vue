@@ -73,33 +73,35 @@
           :class="'card-' + reservation.status"
         >
           <div class="card-header">
-            <span class="card-number">{{ reservation.reservationNumber }}</span>
+            <span class="card-number">
+              <span class="label">予約番号:</span> {{ reservation.reservationNumber }}
+            </span>
             <span class="status-badge" :class="'status-' + reservation.status">
               {{ getStatusLabel(reservation.status) }}
             </span>
           </div>
-          
+
           <div class="card-datetime">
-            <span>📅 {{ formatDate(reservation.reservationDate) }}</span>
-            <span>⏰ {{ reservation.reservationTime }}</span>
+            <span><span class="label">予約日:</span> {{ formatDate(reservation.reservationDate) }}</span>
+            <span><span class="label">時間:</span> {{ reservation.reservationTime }}</span>
           </div>
-          
+
           <div class="card-route">
             <div class="route-item">
-              <span class="route-dot start"></span>
+              <span class="route-label pickup">乗車</span>
               <span>{{ reservation.pickupLocation }}</span>
             </div>
-            <div class="route-line"></div>
+            <div class="route-arrow">↓</div>
             <div class="route-item">
-              <span class="route-dot end"></span>
+              <span class="route-label dropoff">降車</span>
               <span>{{ reservation.dropOffLocation }}</span>
             </div>
           </div>
-          
+
           <div class="card-customer">
-            <span>👤 {{ reservation.customerName }}</span>
+            <span><span class="label">利用者:</span> {{ reservation.customerName }} 様</span>
             <a :href="'tel:' + reservation.customerPhone" class="phone-link">
-              📞 {{ reservation.customerPhone }}
+              <span class="label">電話:</span> {{ reservation.customerPhone }}
             </a>
           </div>
           
@@ -367,6 +369,12 @@ const handleCancel = async (id) => {
   margin-bottom: 12px;
 }
 
+.label {
+  color: #888;
+  font-weight: 500;
+  font-size: 12px;
+}
+
 .route-item {
   display: flex;
   align-items: center;
@@ -375,26 +383,31 @@ const handleCancel = async (id) => {
   color: #333;
 }
 
-.route-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.route-label {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: center;
 }
 
-.route-dot.start {
+.route-label.pickup {
   background-color: #34c759;
+  color: white;
 }
 
-.route-dot.end {
+.route-label.dropoff {
   background-color: #ff3b30;
+  color: white;
 }
 
-.route-line {
-  width: 2px;
-  height: 16px;
-  background-color: #ddd;
-  margin-left: 4px;
-  margin: 4px 0 4px 4px;
+.route-arrow {
+  text-align: center;
+  color: #888;
+  font-size: 16px;
+  margin: 4px 0;
 }
 
 .card-customer {
