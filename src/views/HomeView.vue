@@ -20,18 +20,50 @@
       </div>
       
       <div class="driver-link">
-        <router-link to="/driver" class="driver-link-text">
+        <a href="#" class="driver-link-text" @click.prevent="openDriverLogin">
           運転者の方はこちら →
-        </router-link>
+        </a>
+      </div>
+
+      <!-- 運転者ログインモーダル -->
+      <div v-if="showDriverLogin" class="modal-overlay" @click.self="closeDriverLogin">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>運転者ログイン</h3>
+            <button class="modal-close" @click="closeDriverLogin">×</button>
+          </div>
+          <div class="modal-content">
+            <p class="modal-description">パスワードを入力してください</p>
+            <input
+              type="password"
+              v-model="driverPassword"
+              class="password-input"
+              placeholder="パスワード"
+              @keyup.enter="verifyPassword"
+            >
+            <p v-if="passwordError" class="error-text">パスワードが違います</p>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" @click="verifyPassword">ログイン</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+
+const showDriverLogin = ref(false)
+const driverPassword = ref('')
+const passwordError = ref(false)
+
+// 運転者パスワード（本番環境では環境変数などで管理してください）
+const DRIVER_PASSWORD = '1234'
 
 const goToReservation = () => {
   router.push('/reservation')
@@ -39,6 +71,29 @@ const goToReservation = () => {
 
 const goToHistory = () => {
   router.push('/history')
+}
+
+const openDriverLogin = () => {
+  showDriverLogin.value = true
+  driverPassword.value = ''
+  passwordError.value = false
+}
+
+const closeDriverLogin = () => {
+  showDriverLogin.value = false
+  driverPassword.value = ''
+  passwordError.value = false
+}
+
+const verifyPassword = () => {
+  if (driverPassword.value === DRIVER_PASSWORD) {
+    // 認証済みフラグをセッションに保存
+    sessionStorage.setItem('driverAuthenticated', 'true')
+    closeDriverLogin()
+    router.push('/driver')
+  } else {
+    passwordError.value = true
+  }
 }
 </script>
 
@@ -116,6 +171,92 @@ const goToHistory = () => {
 
 .driver-link-text:hover {
   color: #0078FF;
+}
+
+/* モーダル */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal {
+  background-color: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-content {
+  padding: 20px;
+}
+
+.modal-description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.password-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 4px;
+}
+
+.password-input:focus {
+  outline: none;
+  border-color: #0078FF;
+}
+
+.error-text {
+  color: #ff3b30;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.modal-actions {
+  padding: 0 20px 20px;
+}
+
+.modal-actions .btn {
+  width: 100%;
 }
 </style>
 

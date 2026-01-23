@@ -121,9 +121,12 @@ import { useReservationForm } from '../composables/useReservations'
 const router = useRouter()
 const { formData, errors, validate } = useReservationForm()
 
-// セッションストレージから保存されたデータを復元
+// ストレージから保存されたデータを復元（sessionStorage優先、なければlocalStorage）
 onMounted(() => {
-  const savedData = sessionStorage.getItem('reservationFormData')
+  let savedData = sessionStorage.getItem('reservationFormData')
+  if (!savedData) {
+    savedData = localStorage.getItem('reservationFormDataBackup')
+  }
   if (savedData) {
     const data = JSON.parse(savedData)
     formData.value = { ...formData.value, ...data }
@@ -155,8 +158,10 @@ const goBack = () => {
 
 const goToConfirm = () => {
   if (validate()) {
-    // フォームデータをセッションストレージに保存
-    sessionStorage.setItem('reservationFormData', JSON.stringify(formData.value))
+    // フォームデータを保存（sessionStorageとlocalStorage両方）
+    const formJson = JSON.stringify(formData.value)
+    sessionStorage.setItem('reservationFormData', formJson)
+    localStorage.setItem('reservationFormDataBackup', formJson)
     router.push('/reservation/confirm')
   }
 }

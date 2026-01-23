@@ -64,11 +64,22 @@ const reservation = ref({
   pickupLocation: '',
   dropOffLocation: ''
 })
+const isLoading = ref(true)
 
 onMounted(() => {
-  const savedReservation = sessionStorage.getItem('completedReservation')
+  // 優先順位: sessionStorage → localStorage
+  let savedReservation = sessionStorage.getItem('completedReservation')
+
+  if (!savedReservation) {
+    // sessionStorageになければlocalStorageから取得
+    savedReservation = localStorage.getItem('lastCompletedReservation')
+  }
+
   if (savedReservation) {
     reservation.value = JSON.parse(savedReservation)
+    // localStorageにもバックアップ保存
+    localStorage.setItem('lastCompletedReservation', savedReservation)
+    isLoading.value = false
   } else {
     router.push('/')
   }
@@ -87,11 +98,13 @@ const formatDate = (dateStr) => {
 
 const goToHistory = () => {
   sessionStorage.removeItem('completedReservation')
+  localStorage.removeItem('lastCompletedReservation')
   router.push('/history')
 }
 
 const goToHome = () => {
   sessionStorage.removeItem('completedReservation')
+  localStorage.removeItem('lastCompletedReservation')
   router.push('/')
 }
 </script>

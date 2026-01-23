@@ -143,7 +143,10 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useReservations } from '../composables/useReservations'
+
+const router = useRouter()
 
 const {
   reservations,
@@ -159,10 +162,17 @@ const selectedDate = ref('')
 let unsubscribe = null
 
 onMounted(() => {
+  // 認証チェック
+  const isAuthenticated = sessionStorage.getItem('driverAuthenticated')
+  if (isAuthenticated !== 'true') {
+    router.push('/')
+    return
+  }
+
   // 今日の日付をデフォルトに設定
   const today = new Date()
   selectedDate.value = today.toISOString().split('T')[0]
-  
+
   // リアルタイム購読開始
   unsubscribe = subscribeReservations()
 })

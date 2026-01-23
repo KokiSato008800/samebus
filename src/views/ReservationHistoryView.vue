@@ -13,7 +13,7 @@
       </div>
       
       <!-- 空状態 -->
-      <div v-else-if="reservations.length === 0" class="empty-state">
+      <div v-else-if="myReservations.length === 0" class="empty-state">
         <div class="empty-state-icon">📋</div>
         <p class="empty-state-text">予約がありません</p>
       </div>
@@ -168,9 +168,12 @@ const {
 } = useReservations()
 
 const selectedReservation = ref(null)
+const myReservationIds = ref([])
 let unsubscribe = null
 
 onMounted(() => {
+  // 自分の予約IDを取得
+  myReservationIds.value = JSON.parse(localStorage.getItem('myReservationIds') || '[]')
   unsubscribe = subscribeReservations()
 })
 
@@ -180,12 +183,17 @@ onUnmounted(() => {
   }
 })
 
+// 自分の予約のみフィルター
+const myReservations = computed(() => {
+  return reservations.value.filter(r => myReservationIds.value.includes(r.id))
+})
+
 // これからの予約
 const upcomingReservations = computed(() => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
-  return reservations.value.filter(r => {
+
+  return myReservations.value.filter(r => {
     const reservationDate = new Date(r.reservationDate)
     reservationDate.setHours(0, 0, 0, 0)
     return reservationDate >= today && r.status !== 'cancelled' && r.status !== 'completed'
@@ -200,8 +208,8 @@ const upcomingReservations = computed(() => {
 const pastReservations = computed(() => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
-  return reservations.value.filter(r => {
+
+  return myReservations.value.filter(r => {
     const reservationDate = new Date(r.reservationDate)
     reservationDate.setHours(0, 0, 0, 0)
     return reservationDate < today || r.status === 'completed' || r.status === 'cancelled'

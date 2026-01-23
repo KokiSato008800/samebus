@@ -78,10 +78,18 @@ const formData = ref({
 })
 
 onMounted(() => {
-  // セッションストレージからフォームデータを取得
-  const savedData = sessionStorage.getItem('reservationFormData')
+  // 優先順位: sessionStorage → localStorage
+  let savedData = sessionStorage.getItem('reservationFormData')
+
+  if (!savedData) {
+    // sessionStorageになければlocalStorageから取得
+    savedData = localStorage.getItem('reservationFormDataBackup')
+  }
+
   if (savedData) {
     formData.value = JSON.parse(savedData)
+    // localStorageにもバックアップ保存
+    localStorage.setItem('reservationFormDataBackup', savedData)
   } else {
     // データがない場合は予約フォームに戻る
     router.push('/reservation')
@@ -106,11 +114,21 @@ const goBack = () => {
 const submitReservation = async () => {
   try {
     const result = await createReservation(formData.value)
-    
-    // 完了画面に予約番号を渡す
-    sessionStorage.setItem('completedReservation', JSON.stringify(result))
+
+    // 自分の予約IDをlocalStorageに保存
+    const myReservationIds = JSON.parse(localStorage.getItem('myReservationIds') || '[]')
+    myReservationIds.push(result.id)
+    localStorage.setItem('myReservationIds', JSON.stringify(myReservationIds))
+
+    // 完了画面に予約番号を渡す（sessionStorageとlocalStorage両方に保存）
+    const resultJson = JSON.stringify(result)
+    sessionStorage.setItem('completedReservation', resultJson)
+    localStorage.setItem('lastCompletedReservation', resultJson)
+
+    // フォームデータをクリア
     sessionStorage.removeItem('reservationFormData')
-    
+    localStorage.removeItem('reservationFormDataBackup')
+
     router.push('/reservation/complete')
   } catch (err) {
     alert('予約の登録に失敗しました。もう一度お試しください。')
