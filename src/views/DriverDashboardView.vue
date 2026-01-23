@@ -28,12 +28,19 @@
       >
         対応中 ({{ statusCounts.in_progress }})
       </button>
-      <button 
-        class="filter-chip" 
+      <button
+        class="filter-chip"
         :class="{ active: currentFilter === 'completed' }"
         @click="setFilter('completed')"
       >
         完了 ({{ statusCounts.completed }})
+      </button>
+      <button
+        class="filter-chip"
+        :class="{ active: currentFilter === 'cancelled' }"
+        @click="setFilter('cancelled')"
+      >
+        キャンセル ({{ statusCounts.cancelled }})
       </button>
     </div>
     
@@ -41,7 +48,7 @@
     <div class="date-filter">
       <label>日付:</label>
       <input type="date" v-model="selectedDate" class="date-input">
-      <button class="clear-date" @click="selectedDate = ''" v-if="selectedDate">×</button>
+      <button class="all-dates-btn" :class="{ active: !selectedDate }" @click="selectedDate = ''">全日付</button>
     </div>
     
     <div class="booking-content">
@@ -98,14 +105,21 @@
           
           <!-- ステータス変更ボタン -->
           <div class="status-actions" v-if="reservation.status !== 'completed' && reservation.status !== 'cancelled'">
-            <button 
+            <button
+              v-if="reservation.status === 'pending'"
+              class="status-btn status-btn-cancel"
+              @click="handleCancel(reservation.id)"
+            >
+              キャンセル
+            </button>
+            <button
               v-if="reservation.status === 'pending'"
               class="status-btn status-btn-progress"
               @click="changeStatus(reservation.id, 'in_progress')"
             >
               対応開始
             </button>
-            <button 
+            <button
               v-if="reservation.status === 'in_progress'"
               class="status-btn status-btn-complete"
               @click="changeStatus(reservation.id, 'completed')"
@@ -129,12 +143,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useReservations } from '../composables/useReservations'
 
-const { 
-  reservations, 
-  loading, 
-  subscribeReservations, 
+const {
+  reservations,
+  loading,
+  subscribeReservations,
   updateReservationStatus,
-  getStatusLabel 
+  cancelReservation,
+  getStatusLabel
 } = useReservations()
 
 const currentFilter = ref('all')
@@ -224,6 +239,16 @@ const changeStatus = async (id, status) => {
     alert('ステータスの更新に失敗しました')
   }
 }
+
+const handleCancel = async (id) => {
+  if (confirm('この予約をキャンセルしますか？')) {
+    try {
+      await cancelReservation(id)
+    } catch (err) {
+      alert('キャンセルに失敗しました')
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -258,13 +283,20 @@ const changeStatus = async (id, status) => {
   font-family: inherit;
 }
 
-.clear-date {
-  background: none;
-  border: none;
-  font-size: 20px;
-  color: #888;
+.all-dates-btn {
+  padding: 8px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  font-size: 14px;
   cursor: pointer;
-  padding: 4px 8px;
+  transition: all 0.2s;
+}
+
+.all-dates-btn.active {
+  background-color: #0078FF;
+  color: white;
+  border-color: #0078FF;
 }
 
 .booking-content {
@@ -405,6 +437,42 @@ const changeStatus = async (id, status) => {
   50% {
     opacity: 0.5;
   }
+}
+
+.status-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.status-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.status-btn:active {
+  opacity: 0.8;
+}
+
+.status-btn-cancel {
+  background-color: #ff3b30;
+  color: white;
+}
+
+.status-btn-progress {
+  background-color: #0078FF;
+  color: white;
+}
+
+.status-btn-complete {
+  background-color: #34c759;
+  color: white;
 }
 </style>
 
