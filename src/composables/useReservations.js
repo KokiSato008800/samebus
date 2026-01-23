@@ -1,10 +1,27 @@
 import { ref } from 'vue'
+import { db } from '../firebase/config'
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp
+} from 'firebase/firestore'
 
 // デモモード（Firebaseなしで動作）
-const DEMO_MODE = true
+const DEMO_MODE = false
 
 // ローカルストレージのキー
 const STORAGE_KEY = 'samebus_reservations'
+
+// Firestoreコレクション名
+const COLLECTION_NAME = 'reservations'
 
 // ローカルストレージから予約データを取得
 const getLocalReservations = () => {
@@ -33,6 +50,14 @@ export function useReservations() {
     return `R${year}${month}${day}${random}`
   }
 
+  // Firestoreのタイムスタンプを文字列に変換
+  const convertTimestamp = (timestamp) => {
+    if (timestamp instanceof Timestamp) {
+      return timestamp.toDate().toISOString()
+    }
+    return timestamp
+  }
+
   // 全予約を取得
   const fetchReservations = async () => {
     loading.value = true
@@ -42,6 +67,16 @@ export function useReservations() {
       if (DEMO_MODE) {
         // デモモード: ローカルストレージから取得
         reservations.value = getLocalReservations()
+      } else {
+        // Firestoreから取得
+        const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'))
+        const querySnapshot = await getDocs(q)
+        reservations.value = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+          updatedAt: convertTimestamp(doc.data().updatedAt)
+        }))
       }
     } catch (err) {
       console.error('予約取得エラー:', err)
@@ -51,7 +86,7 @@ export function useReservations() {
     }
   }
 
-  // リアルタイム購読（デモモードではダミー）
+  // リアルタイム購読
   const subscribeReservations = (callback) => {
     if (DEMO_MODE) {
       reservations.value = getLocalReservations()
@@ -60,6 +95,24 @@ export function useReservations() {
       }
       // ダミーのunsubscribe関数を返す
       return () => {}
+    } else {
+      // Firestoreのリアルタイム購読
+      const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'))
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        reservations.value = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+          updatedAt: convertTimestamp(doc.data().updatedAt)
+        }))
+        if (callback) {
+          callback(reservations.value)
+        }
+      }, (err) => {
+        console.error('リアルタイム購読エラー:', err)
+        error.value = '予約データの監視に失敗しました'
+      })
+      return unsubscribe
     }
   }
 
@@ -69,28 +122,47 @@ export function useReservations() {
     error.value = null
 
     try {
-      const reservationData = {
-        id: 'demo_' + Date.now(),
-        reservationNumber: generateReservationNumber(),
-        pickupLocation: data.pickupLocation,
-        dropOffLocation: data.dropOffLocation,
-        reservationDate: data.reservationDate,
-        reservationTime: data.reservationTime,
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-
       if (DEMO_MODE) {
+        const reservationData = {
+          id: 'demo_' + Date.now(),
+          reservationNumber: generateReservationNumber(),
+          pickupLocation: data.pickupLocation,
+          dropOffLocation: data.dropOffLocation,
+          reservationDate: data.reservationDate,
+          reservationTime: data.reservationTime,
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
         // デモモード: ローカルストレージに保存
         const currentReservations = getLocalReservations()
         currentReservations.unshift(reservationData)
         saveLocalReservations(currentReservations)
+        return reservationData
+      } else {
+        // Firestoreに保存
+        const reservationData = {
+          reservationNumber: generateReservationNumber(),
+          pickupLocation: data.pickupLocation,
+          dropOffLocation: data.dropOffLocation,
+          reservationDate: data.reservationDate,
+          reservationTime: data.reservationTime,
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          status: 'pending',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+        const docRef = await addDoc(collection(db, COLLECTION_NAME), reservationData)
+        return {
+          id: docRef.id,
+          ...reservationData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
       }
-
-      return reservationData
     } catch (err) {
       console.error('予約作成エラー:', err)
       error.value = '予約の作成に失敗しました'
@@ -114,6 +186,13 @@ export function useReservations() {
           currentReservations[index].updatedAt = new Date().toISOString()
           saveLocalReservations(currentReservations)
         }
+      } else {
+        // Firestoreで更新
+        const docRef = doc(db, COLLECTION_NAME, id)
+        await updateDoc(docRef, {
+          status: status,
+          updatedAt: serverTimestamp()
+        })
       }
     } catch (err) {
       console.error('ステータス更新エラー:', err)
@@ -134,6 +213,10 @@ export function useReservations() {
         const currentReservations = getLocalReservations()
         const filtered = currentReservations.filter(r => r.id !== id)
         saveLocalReservations(filtered)
+      } else {
+        // Firestoreから削除
+        const docRef = doc(db, COLLECTION_NAME, id)
+        await deleteDoc(docRef)
       }
     } catch (err) {
       console.error('予約削除エラー:', err)
@@ -148,16 +231,16 @@ export function useReservations() {
   const cancelReservation = async (id) => {
     return updateReservationStatus(id, 'cancelled')
   }
-  
+
   // 日付でフィルタリング（今日以降 / 過去）
   const filterByDate = (type) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
+
     return reservations.value.filter(r => {
       const reservationDate = new Date(r.reservationDate)
       reservationDate.setHours(0, 0, 0, 0)
-      
+
       if (type === 'upcoming') {
         return reservationDate >= today && r.status !== 'cancelled'
       } else if (type === 'past') {
@@ -166,7 +249,7 @@ export function useReservations() {
       return true
     })
   }
-  
+
   // ステータスでフィルタリング
   const filterByStatus = (status) => {
     if (!status || status === 'all') {
@@ -174,7 +257,7 @@ export function useReservations() {
     }
     return reservations.value.filter(r => r.status === status)
   }
-  
+
   // ステータスの日本語表示
   const getStatusLabel = (status) => {
     const labels = {
@@ -185,7 +268,7 @@ export function useReservations() {
     }
     return labels[status] || status
   }
-  
+
   return {
     reservations,
     loading,
@@ -212,21 +295,21 @@ export function useReservationForm() {
     customerName: '',
     customerPhone: ''
   })
-  
+
   const errors = ref({})
-  
+
   // バリデーション
   const validate = () => {
     errors.value = {}
-    
+
     if (!formData.value.pickupLocation.trim()) {
       errors.value.pickupLocation = '乗車場所を入力してください'
     }
-    
+
     if (!formData.value.dropOffLocation.trim()) {
       errors.value.dropOffLocation = '降車場所を入力してください'
     }
-    
+
     if (!formData.value.reservationDate) {
       errors.value.reservationDate = '日付を選択してください'
     } else {
@@ -237,15 +320,15 @@ export function useReservationForm() {
         errors.value.reservationDate = '過去の日付は選択できません'
       }
     }
-    
+
     if (!formData.value.reservationTime) {
       errors.value.reservationTime = '時間を選択してください'
     }
-    
+
     if (!formData.value.customerName.trim()) {
       errors.value.customerName = 'お名前を入力してください'
     }
-    
+
     if (!formData.value.customerPhone.trim()) {
       errors.value.customerPhone = '電話番号を入力してください'
     } else {
@@ -255,10 +338,10 @@ export function useReservationForm() {
         errors.value.customerPhone = '正しい電話番号を入力してください'
       }
     }
-    
+
     return Object.keys(errors.value).length === 0
   }
-  
+
   // フォームをリセット
   const resetForm = () => {
     formData.value = {
@@ -271,7 +354,7 @@ export function useReservationForm() {
     }
     errors.value = {}
   }
-  
+
   return {
     formData,
     errors,
@@ -279,5 +362,3 @@ export function useReservationForm() {
     resetForm
   }
 }
-
-
